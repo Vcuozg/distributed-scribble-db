@@ -19,6 +19,9 @@ type WriteRequest struct {
 	Resource   string                 `json:"resource"`
 	Data       map[string]interface{} `json:"data"`
 }
+type ReadResponse struct {
+	Data interface{} `json:"data"`
+}
 
 func main() {
 	var err error
@@ -30,6 +33,7 @@ func main() {
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/write", writeHandler)
+	http.HandleFunc("/read", readHandler)
 
 	log.Println("Server running on :8080")
 
@@ -80,5 +84,36 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(Response{
 		Message: "Data written successfully",
+	})
+}
+func readHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	collection := r.URL.Query().Get("collection")
+	resource := r.URL.Query().Get("resource")
+
+	if collection == "" || resource == "" {
+		w.WriteHeader(http.StatusBadRequest)
+
+		json.NewEncoder(w).Encode(Response{
+			Message: "collection and resource are required",
+		})
+		return
+	}
+
+	var result interface{}
+
+	err := db.Read(collection, resource, &result)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+
+		json.NewEncoder(w).Encode(Response{
+			Message: "Data not found",
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(ReadResponse{
+		Data: result,
 	})
 }
