@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/Vcuozg/distributed-scribble-db/scribble"
 )
@@ -14,7 +15,7 @@ var db *scribble.Driver
 var (
 	nodeRole  string
 	serverPort string
-	replicaURL string
+	replicaURLs []string
 )
 
 type Response struct {
@@ -34,7 +35,10 @@ func main() {
 
 		nodeRole = os.Getenv("NODE_ROLE")
 	serverPort = os.Getenv("PORT")
-	replicaURL = os.Getenv("REPLICA_URL")
+	replicaEnv := os.Getenv("REPLICA_URLS")
+if replicaEnv != "" {
+	replicaURLs = strings.Split(replicaEnv, ",")
+}
 
 	if nodeRole == "" {
 		nodeRole = "master"
@@ -103,18 +107,16 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if nodeRole == "master" && replicaURL != "" {
-	err = replicateToReplica(req)
-	if err != nil {
-		log.Println("Replication failed:", err)
+	if nodeRole == "master" && len(replicaURLs) > 0 {
+	for _, replicaURL := range replicaURLs {
+		err = replicateToReplica(req, replicaURL)
+		if err != nil {
+			log.Println("Replication failed to", replicaURL, ":", err)
+			continue
+		}
 
-		json.NewEncoder(w).Encode(Response{
-			Message: "Data written successfully, but replication failed",
-		})
-		return
+		log.Println("Data replicated successfully to", replicaURL)
 	}
-
-	log.Println("Data replicated to replica successfully")
 }
 
 json.NewEncoder(w).Encode(Response{
@@ -218,7 +220,7 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 		Message: "Data replicated successfully",
 	})
 }
-func replicateToReplica(req WriteRequest) error {
+func replicateToReplica(req WriteRequest, replicaURL string) error {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return err
