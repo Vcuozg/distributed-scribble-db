@@ -4,11 +4,17 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/Vcuozg/distributed-scribble-db/scribble"
 )
 
 var db *scribble.Driver
+var (
+	nodeRole  string
+	serverPort string
+	replicaURL string
+)
 
 type Response struct {
 	Message string `json:"message"`
@@ -24,6 +30,18 @@ type ReadResponse struct {
 }
 
 func main() {
+
+		nodeRole = os.Getenv("NODE_ROLE")
+	serverPort = os.Getenv("PORT")
+	replicaURL = os.Getenv("REPLICA_URL")
+
+	if nodeRole == "" {
+		nodeRole = "master"
+	}
+
+	if serverPort == "" {
+		serverPort = "8080"
+	}
 	var err error
 
 	db, err = scribble.New("./data", nil)
@@ -36,9 +54,9 @@ func main() {
 	http.HandleFunc("/read", readHandler)
 	http.HandleFunc("/delete", deleteHandler)
 
-	log.Println("Server running on :8080")
+	log.Printf("Node: %s running on :%s\n", nodeRole, serverPort)
 
-	err = http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":"+serverPort, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
