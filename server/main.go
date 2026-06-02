@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -102,9 +103,23 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(Response{
-		Message: "Data written successfully",
-	})
+	if nodeRole == "master" && replicaURL != "" {
+	err = replicateToReplica(req)
+	if err != nil {
+		log.Println("Replication failed:", err)
+
+		json.NewEncoder(w).Encode(Response{
+			Message: "Data written successfully, but replication failed",
+		})
+		return
+	}
+
+	log.Println("Data replicated to replica successfully")
+}
+
+json.NewEncoder(w).Encode(Response{
+	Message: "Data written successfully",
+})
 }
 func readHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -202,4 +217,26 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(Response{
 		Message: "Data replicated successfully",
 	})
+}
+func replicateToReplica(req WriteRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(
+		replicaURL+"/replicate",
+		"application/json",
+		bytes.NewBuffer(body),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return http.ErrHandlerTimeout
+	}
+
+	return nil
 }
