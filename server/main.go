@@ -51,6 +51,7 @@ func main() {
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/write", writeHandler)
+	http.HandleFunc("/replicate", replicateHandler)
 	http.HandleFunc("/read", readHandler)
 	http.HandleFunc("/delete", deleteHandler)
 
@@ -163,5 +164,42 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(Response{
 		Message: "Data deleted successfully",
+	})
+}
+func replicateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(Response{
+			Message: "Only POST method is allowed",
+		})
+		return
+	}
+
+	var req WriteRequest
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Response{
+			Message: "Invalid replication request",
+		})
+		return
+	}
+
+	err = db.Write(req.Collection, req.Resource, req.Data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(Response{
+			Message: "Failed to replicate data",
+		})
+		return
+	}
+
+	log.Printf("Replica received data: collection=%s resource=%s\n", req.Collection, req.Resource)
+
+	json.NewEncoder(w).Encode(Response{
+		Message: "Data replicated successfully",
 	})
 }
