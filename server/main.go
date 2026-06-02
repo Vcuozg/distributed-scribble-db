@@ -14,6 +14,12 @@ type Response struct {
 	Message string `json:"message"`
 }
 
+type WriteRequest struct {
+	Collection string                 `json:"collection"`
+	Resource   string                 `json:"resource"`
+	Data       map[string]interface{} `json:"data"`
+}
+
 func main() {
 	var err error
 
@@ -23,6 +29,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/write", writeHandler)
 
 	log.Println("Server running on :8080")
 
@@ -37,5 +44,41 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(Response{
 		Message: "Distributed Scribble API is running",
+	})
+}
+
+func writeHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(Response{
+			Message: "Only POST method is allowed",
+		})
+		return
+	}
+
+	var req WriteRequest
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Response{
+			Message: "Invalid JSON request",
+		})
+		return
+	}
+
+	err = db.Write(req.Collection, req.Resource, req.Data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(Response{
+			Message: "Failed to write data",
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(Response{
+		Message: "Data written successfully",
 	})
 }
