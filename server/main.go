@@ -34,6 +34,7 @@ func main() {
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/write", writeHandler)
 	http.HandleFunc("/read", readHandler)
+	http.HandleFunc("/delete", deleteHandler)
 
 	log.Println("Server running on :8080")
 
@@ -115,5 +116,34 @@ func readHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(ReadResponse{
 		Data: result,
+	})
+}
+func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	collection := r.URL.Query().Get("collection")
+	resource := r.URL.Query().Get("resource")
+
+	if collection == "" || resource == "" {
+		w.WriteHeader(http.StatusBadRequest)
+
+		json.NewEncoder(w).Encode(Response{
+			Message: "collection and resource are required",
+		})
+		return
+	}
+
+	err := db.Delete(collection, resource)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+
+		json.NewEncoder(w).Encode(Response{
+			Message: "Data not found",
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(Response{
+		Message: "Data deleted successfully",
 	})
 }
