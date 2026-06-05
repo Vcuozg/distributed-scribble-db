@@ -55,6 +55,7 @@ if replicaEnv != "" {
 	}
 
 	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/write", writeHandler)
 	http.HandleFunc("/replicate", replicateHandler)
 	http.HandleFunc("/read", readHandler)
@@ -241,4 +242,13 @@ func replicateToReplica(req WriteRequest, replicaURL string) error {
 	}
 
 	return nil
+}
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "healthy",
+		"role":   nodeRole,
+		"port":   serverPort,
+	})
 }
